@@ -1,7 +1,7 @@
 {
   "name": "node-ffi-packager",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "A tool to generate a Node.js Foreign Function Interface (FFI) package for a given C/C++ library.",
   "homepage": "https://github.com/node-ffi-packager",
   "author": {
