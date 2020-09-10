@@ -1,0 +1,33 @@
+#!/usr/bin/env -S expect --
+
+# TODO: when generator-generator (and all composed generators) supports it, use:
+# TODO:   - --some-option flags
+# TODO:   - .yo-rc.json
+spawn -noecho "[lrange $argv 0 1]/node_modules/.bin/yo" generator --no-insight --local-only --no-color --skip-install
+
+expect -re "Your generator name.*" { send -- "generator-node-ffi-library\r" }
+expect -re "Description.*" { send -- "A generator for Node.js (javascript) packages to load and call dynamic libraries (for example C/C++) through the foreign function interface (FFI).\r" }
+expect -re "Project homepage url.*" { send -- "https://joelpurra.com/projects/generator-node-ffi-library\r" }
+expect -re "Author's Name.*" { send -- "Joel Purra\r" }
+expect -re "Author's Email.*" { send -- "code+npm@joelpurra.com\r" }
+expect -re "Author's Homepage.*" { send -- "https://joelpurra.com/\r" }
+expect -re "Package keywords.*" { send -- "ffi,binding,foreign,function,interface,napi,abi,c,c++,shared,library,so,dll,dylib\r" }
+expect -re "Send coverage reports to coveralls.*" { send -- "n\r" }
+
+sleep 0.5
+
+# TODO: list compatible nodejs versions.
+expect -re "Enter Node versions.*" { send -- "\r" }
+
+sleep 0.5
+
+expect -re "GitHub username or organization.*" { send -- "joelpurra\r" }
+
+sleep 0.5
+
+# NOTE: expects MIT to be the second license in the list.
+expect -re "Which license do you want to use?.*" { send -- "\033\[B\r" }
+
+sleep 0.5
+
+interact

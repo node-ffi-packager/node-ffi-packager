@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o noclobber
+set -o nounset
+set -o pipefail
+
+declare SCRIPT_ABSOLUTE
+SCRIPT_ABSOLUTE="$(realpath "$BASH_SOURCE")"
+declare SCRIPT_BASE_ABSOLUTE
+SCRIPT_BASE_ABSOLUTE="$(realpath "${SCRIPT_ABSOLUTE%/*}")"
+
+function packageGitList() {
+    while read libraryName libraryVersion conanRemote;
+    do
+        # NOTE: short flags due to macos.
+        mkdir -p './publish'
+
+        # NOTE: duplicated variables.
+        local conanReference="${libraryName}/${libraryVersion}@"        
+
+        "${SCRIPT_BASE_ABSOLUTE}/ffi-publisher-git" "$libraryName" "$libraryVersion" "$conanRemote" 
+    done < <(jq --raw-output 'map("\(.name) \(.version) \(.remote)") | .[]' "$X_LIBRARIES_JSON")
+}
+
+function main() {
+    # TODO: local variables passed to functions.
+    declare -r X_LIBRARIES_JSON="$1"
+    shift
+
+    packageGitList
+}
+
+main "$@"

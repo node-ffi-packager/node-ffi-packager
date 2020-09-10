@@ -1,0 +1,575 @@
+#!/usr/bin/env bash
+
+set -o errexit
+# set -o noclobber
+set -o nounset
+set -o pipefail
+
+# TODO: make configurable.
+declare -r X_GITHUB_ORGANIZATION_NAME='node-ffi-libraries'
+declare -r X_NPM_ORGANIZATION_NAME='node-ffi-libraries'
+
+declare SCRIPT_ABSOLUTE
+SCRIPT_ABSOLUTE="$(realpath "$BASH_SOURCE")"
+declare SCRIPT_BASE_ABSOLUTE
+SCRIPT_BASE_ABSOLUTE="$(realpath "${SCRIPT_ABSOLUTE%/*}")"
+
+function die() {
+    echo -E "$@" >&2
+    exit 1
+}
+
+read -d '' jqSelectCurrentConanPackages <<"EOF" || true
+.results[].items[].packages |= (
+    map(
+        select(
+            .outdated == false
+            and .options.shared == "True"
+        )
+    )
+    | group_by("\\([
+        .settings.os,
+        .settings.arch
+    ])")
+    | map(
+        # TODO: find a better way to find the "most recent" or "most relevant" package version, without involving the compiler.
+        sort_by("\\([
+            (.settings["compiler.version"] | tonumber),
+            # NOTE: sorting by id to make it easier to debug repeated runs.
+            .id
+        ])")
+        | .[-1]
+    )
+)
+EOF
+
+read -d '' jqMapConanPackages <<"EOF" || true
+.results[].items[]
+| .recipe.id as $reference
+| (
+    $reference
+    | split("/")[0]
+) as $name
+| .packages[]
+| (
+    "\\(.settings.os)-\\(.settings.arch)"
+    | ascii_downcase
+) as $platformName
+| {
+    reference: $reference,
+    name: $name,
+    id: .id,
+    platformName: $platformName,
+    settings: .settings,
+    options: .options
+}
+EOF
+
+read -d '' jqGenerateConanfileTxt <<"EOF" || true
+"[requires]
+\\(.reference)
+
+[options]
+*:shared=True
+\\(
+    .options
+    | to_entries
+    | sort_by(.key)
+    | map("#\\(.name):\\(.key)=\\(.value)")
+    | join("\\n")
+)
+
+[imports]
+., * -> ./platforms/\\(.platformName) @ root_package=\\(.name)
+
+[generators]
+json
+deploy"
+EOF
+
+read -d '' jqGenerateConanprofileTxt <<"EOF" || true
+(
+    .reference
+    | split("/")[0]
+) as $name
+| "[settings]
+\\(
+    .settings
+    | to_entries
+    | sort_by(.key)
+    | map("\\(.key)=\\(.value)")
+    | join("\\n")
+)"
+EOF
+
+read -d '' jqGenerateConanLibraryDetails <<"EOF" || true
+def replace(a; b):
+	split(a)
+	| join(b);
+
+def filterFilesWithPathPrefix(filePaths; pathFilter; prefixPaths):
+    prefixPaths as $prefixPaths
+    | filePaths
+    | map(
+        . as $file
+        | $prefixPaths[]
+        | . as $prefixPath
+        | select(
+            (
+                $file
+                | startswith(
+                    $prefixPath
+                )
+            ) and (
+                $file
+                | pathFilter
+            )
+        )
+        | $file
+    );
+(
+    $platformFilesRaw
+    | split("\\n")
+) as $platformFiles
+| {
+    dependencies: (
+        .dependencies
+        | map(
+            .name as $name
+            | .rootpath as $rootpath
+            | {
+                name,
+                version,
+                libs,
+                system_libs,
+                # TODO: reduce repetition.
+                include_paths: (
+                    .include_paths
+                    | map(
+                        replace($rootpath; ".")
+                    )
+                ),
+                lib_paths: (
+                    .lib_paths
+                    | map(
+                        replace($rootpath; ".")
+                    )
+                ),
+                bin_paths: (
+                    .bin_paths
+                    | map(
+                        replace($rootpath; ".")
+                    )
+                ),
+            }
+            # TODO: reduce repetition.
+            | .include_files = filterFilesWithPathPrefix($platformFiles; test("\\\\.(h|hpp)\\\\b"; "ix"); .include_paths)
+            | if ((.include_files | length) == 0) then (.include_paths = []) else . end
+            | .lib_files = filterFilesWithPathPrefix($platformFiles; test("\\\\.(so|dll|dylib)\\\\b"; "ix"); .lib_paths)
+            | if ((.lib_files | length) == 0) then (.lib_paths = []) else . end
+            | .bin_files = filterFilesWithPathPrefix($platformFiles; test("\\\\.(so|dll|dylib)\\\\b"; "ix"); .bin_paths)
+            | if ((.bin_files | length) == 0) then (.bin_paths = []) else . end
+            # TODO: reduce repetition.
+            | .libs |= sort
+            | .system_libs |= sort
+            | .include_paths |= sort
+            | .lib_paths |= sort
+            | .bin_paths |= sort
+            | {
+                ($name): (
+                    .
+                    | del(.name)
+                )
+            }
+        )
+        | add
+    )
+}
+EOF
+
+read -d '' jqGeneratePlatformDetails <<"EOF" || true
+{
+    library:{
+        name: $libraryName,
+        reference: $libraryReference,
+    },
+    platform: {
+        name: $platformName,
+        libraryDependencies: $libraryDependencies,
+        libraryFiles: $platformLibraryFilesJson,
+        headerFiles: $headerFilesJson,
+    },
+    conan: {
+        reference: $X_CONAN_REFERENCE,
+        remote: $X_CONAN_REMOTE,
+        packageId: $package_id,
+    },
+    packager: {
+        name: $X_PACKAGER_NAME,
+        url: $X_PACKAGER_HOMEPAGE,
+        version: $X_PACKAGER_VERSION,
+    }
+}
+EOF
+
+read -d '' jqGenerateNpmPackageYoRc <<"EOF" || true
+{
+    "generator-node-ffi-library": {
+        "github-organization-name": $githubOrganizationName,
+        "npm-organization-name": $npmOrganizationName,
+        "conan-reference": $conanReference,
+        "conan-remote": $conanRemote,
+        "conan-author": $libraryInformation[0].author,
+        "conan-url": $libraryInformation[0].url,
+        "library-description": $libraryInformation[0].description,
+        "library-homepage": $libraryInformation[0].homepage,
+        "library-license": $libraryInformation[0].license,
+        "library-topics": ($libraryInformation[0].topics | @json),
+        "author-name": $authorName,
+        "author-email": $authorEmail,
+        "author-homepage": $authorHomepage,
+        "packager-name": $packagerName,
+        "packager-homepage": $packagerHomepage,
+        "packager-version": $packagerVersion,
+        "platforms-details": (
+            map({
+                key: .platform.name,
+                value: .
+            })
+            | from_entries
+            | tojson
+        ),
+        "library-dependencies": (
+            # TODO: move all naming logic to the library generator?
+            map(
+                .platform.libraryDependencies
+                | to_entries
+                | map({
+                    key: (
+                        "@\\(
+                            $npmOrganizationName
+                        )/ffi-library-\\(
+                            .key
+                        )-v\\(
+                            .value
+                        )"
+                    ),
+                    value: (
+                        "github:\\(
+                            $githubOrganizationName
+                        )/node-ffi-library-\\(
+                            .key
+                        )-v\\(
+                            .value
+                        )#semver:^\\(
+                            $packagerVersion
+                        )"
+                    )
+                })
+                # TODO: detect duplicate library dependencies with conflicting version requirements.
+                | from_entries
+            )
+            | add
+            | tojson
+        )
+    }
+}
+EOF
+
+function checkPrerequisites() {
+    (
+        pushd "$SCRIPT_BASE_ABSOLUTE" > /dev/null
+
+        # NOTE: while enforcing the Node.js version is more important during package usage, it's not a bad idea to run generation with known working versions.
+        node --eval 'require("engine-check")({ searchRoot: __dirname })'
+
+        popd > /dev/null
+    )
+}
+
+function getPackageJsonValue() {
+    local -r filter="$1"
+    shift
+
+    jq --raw-output "$filter" "${SCRIPT_BASE_ABSOLUTE}/package.json"
+}
+
+function perConanPackageId() {
+    (
+        while IFS=$'\n' read -r package_line;
+        do
+            local package_id
+            package_id="$(jq --raw-output '.id' <<< "$package_line")"
+            local libraryName
+            libraryName="$(jq --raw-output '.name' <<< "$package_line")"
+            local libraryReference
+            libraryReference="$(jq --raw-output '.reference' <<< "$package_line")"
+            local platformName
+            platformName="$(jq --raw-output '.platformName' <<< "$package_line")"
+
+            local platformsDirectory
+            platformsDirectory="./platforms"
+            local platformDirectory
+            platformDirectory="${platformsDirectory}/${platformName}"
+            local platformIndexJson
+            platformIndexJson="${platformDirectory}/index.json"
+            local platformIndexJs
+            platformIndexJs="${platformDirectory}/index.js"
+
+
+            "$@"
+        done < <(cat './conan-information/conan-packages-current-split.json')
+    )
+}
+
+function createConanPackageDirectories() {
+    # NOTE: short flags due to macos.
+    mkdir -p "./conan-packages/${package_id}"
+}
+
+function perConanPackageDirectory() {
+    (
+        pushd "./conan-packages/${package_id}/" > /dev/null
+
+        "$@"
+
+        popd > /dev/null
+    )
+}
+
+function perConanPackage() {
+    perConanPackageId perConanPackageDirectory "$@"
+}
+
+function createConanPackageInfo() {
+    jq '.' <<< "$package_line" > 'conan-package.json'
+}
+
+function setupConan() {
+    # NOTE: using local conan configuration.
+    export CONAN_USER_HOME="$PWD"
+
+    # NOTE: might be able to remove general.revisions_enabled=1 if/when it becomes the default.
+    # https://github.com/conan-io/conan/issues/6873
+    # https://docs.conan.io/en/latest/versioning/revisions.html
+    conan config set 'general.revisions_enabled=1'
+
+    conan remote add --force 'bincrafters' 'https://api.bintray.com/conan/bincrafters/public-conan'
+}
+
+function getConanPackageInformation() {
+    # NOTE: short flags due to macos.
+    mkdir -p './conan-information'
+
+    conan search --json './conan-information/conan-search.json' --query 'build_type=Release' --remote "$X_CONAN_REMOTE" "$X_CONAN_REFERENCE"
+
+    <'./conan-information/conan-search.json' jq "$jqSelectCurrentConanPackages" > './conan-information/conan-packages-current.json'
+
+    <'./conan-information/conan-packages-current.json' jq --compact-output "$jqMapConanPackages" > './conan-information/conan-packages-current-split.json'
+
+    conan inspect --json './conan-information/conan-inspect.json' --remote "$X_CONAN_REMOTE" "$X_CONAN_REFERENCE"
+}
+
+function createConanFile() {
+    jq --raw-output "$jqGenerateConanfileTxt" <<< "$package_line" > 'conanfile.txt'
+
+    jq --raw-output "$jqGenerateConanprofileTxt" <<< "$package_line" > 'conanprofile.txt'
+}
+
+function runConanInstall() {
+    conan install --json 'conan-install.json' --profile './conanprofile.txt' --update --build 'outdated' '.'
+}
+
+function resolveConanLibraryPaths() {
+    # NOTE: not including symbolic links.
+    # NOTE: could use conan's deploy generator, but it copies files from all dependencies.
+    # TODO: output generated .js files directly to the package directory.
+    local platformFilesRaw
+    platformFilesRaw="$(cd "./platforms/${platformName}" && find '.' -type f -not -iname '*.js')"
+
+    jq --sort-keys --arg platformFilesRaw "$platformFilesRaw" "$jqGenerateConanLibraryDetails" 'conanbuildinfo.json' > 'conan-library-paths.json'
+}
+
+function generatePlatformDetails() {
+    # TODO: always run in a clean directory?
+    # NOTE: short flags due to macos.
+    rm -f "$platformIndexJson"
+
+    local includePaths
+    includePaths="$(jq --raw-output --arg pwd "$PWD" '.dependencies | to_entries | map(.key as $name | .value | .include_paths | map("\($pwd)/\($name)/\(.)") | .[]) | join(":")' 'conan-library-paths.json')"
+
+    local libraryDependencies
+    libraryDependencies="$(jq --compact-output --arg libraryName "$libraryName" '.dependencies | to_entries | map(select(.key != $libraryName) | .value |= .version) | from_entries' 'conan-library-paths.json')"
+    local platformLibraryFilesJson
+    platformLibraryFilesJson="$(jq --compact-output --arg libraryName "$libraryName" '.dependencies[$libraryName] | ( .lib_files + .bin_files )' 'conan-library-paths.json')"
+
+    local headerFilesPaths=""
+
+    while IFS=$'\n' read -r headerFile;
+    do
+        local headerFilePath="${platformDirectory}/${headerFile}"
+        local platformHeaderJs="${headerFilePath}.js"
+        local platformHeaderJsRelative
+        platformHeaderJsRelative="$(realpath --relative-to="$platformDirectory" "$platformHeaderJs")"
+
+        CPATH="$includePaths" "${SCRIPT_BASE_ABSOLUTE}/node_modules/.bin/ffi-generate" --library "LIBRARY_NAME_PLACEHOLDER" --file_only --file "$headerFilePath" > "$platformHeaderJs"
+
+        # NOTE: export the library using a standardized name.
+        # NOTE: short flags due to macos.
+        sed -i'' 's|exports.LIBRARY_NAME_PLACEHOLDER|exports.functions|' "$platformHeaderJs"
+
+        # NOTE: passing null to reference the globally loaded dynamic library.
+        # NOTE: short flags due to macos.
+        sed -i'' "s|'LIBRARY_NAME_PLACEHOLDER'|null|" "$platformHeaderJs"
+
+        headerFilesPaths+="[ \"${headerFile}\", \"./${platformHeaderJsRelative}\" ]"
+    done < <(jq --raw-output --arg libraryName "$libraryName" '.dependencies[$libraryName].include_files | sort | .[]' 'conan-library-paths.json')
+
+    local headerFilesJson
+    headerFilesJson="$(echo "$headerFilesPaths" | jq --slurp --compact-output 'map({ name: .[0], path: .[1] })')"
+
+    jq \
+        --null-input \
+        --sort-keys \
+        --arg libraryName "$libraryName" \
+        --arg libraryReference "$libraryReference" \
+        --arg package_id "$package_id" \
+        --arg X_CONAN_REFERENCE "$X_CONAN_REFERENCE" \
+        --arg X_CONAN_REMOTE "$X_CONAN_REMOTE" \
+        --arg X_PACKAGER_NAME "$X_PACKAGER_NAME" \
+        --arg X_PACKAGER_HOMEPAGE "$X_PACKAGER_HOMEPAGE" \
+        --arg X_PACKAGER_VERSION "$X_PACKAGER_VERSION" \
+        --arg platformName "$platformName" \
+        --argjson libraryDependencies "$libraryDependencies" \
+        --argjson headerFilesJson "$headerFilesJson" \
+        --argjson platformLibraryFilesJson "$platformLibraryFilesJson" \
+        "$jqGeneratePlatformDetails" \
+        > "$platformIndexJson"
+}
+
+function generatePlatformNodejsFfi() {
+    # TODO: always run in a clean directory?
+    # NOTE: short flags due to macos.
+    rm -f "$platformIndexJs"
+
+    "${SCRIPT_BASE_ABSOLUTE}/node_modules/.bin/dotjs" "${SCRIPT_BASE_ABSOLUTE}/template/index.js.dot" "$(jq --compact-output '.' "$platformIndexJson")" > "$platformIndexJs"
+}
+
+function copyToNpmPackagePlatforms() {
+    # NOTE: skipping symbolic links such as libxyz-1.0.so -> libxyz-1.0.so.0.2.0 because they won't be used anyways.
+    rsync --recursive --no-links './platforms' "${PWD}/../../package"
+}
+
+function generateNpmPackageGenerator() {
+    (
+        pushd "${SCRIPT_BASE_ABSOLUTE}/template" > /dev/null
+
+        './generator.sh'
+
+        popd > /dev/null
+    )
+}
+
+function createNpmPackageDirectory() {
+    # TODO: always run in a clean directory?
+    # NOTE: short flags due to macos.
+    rm -rf './package'
+
+    mkdir './package'
+    mkdir './package/platforms'
+}
+
+function generateNpmPackage() {
+    jq \
+        --slurp \
+        --sort-keys \
+        --arg githubOrganizationName "$X_GITHUB_ORGANIZATION_NAME" \
+        --arg npmOrganizationName "$X_NPM_ORGANIZATION_NAME" \
+        --arg conanReference "$X_CONAN_REFERENCE" \
+        --arg conanRemote "$X_CONAN_REMOTE" \
+        --arg authorName "$X_AUTHOR_NAME" \
+        --arg authorEmail "$X_AUTHOR_EMAIL" \
+        --arg authorHomepage "$X_AUTHOR_HOMEPAGE" \
+        --arg packagerName "$X_PACKAGER_NAME" \
+        --arg packagerHomepage "$X_PACKAGER_HOMEPAGE" \
+        --arg packagerVersion "$X_PACKAGER_VERSION" \
+        --slurpfile libraryInformation './conan-information/conan-inspect.json' \
+        "$jqGenerateNpmPackageYoRc" \
+        ./package/platforms/*/index.json \
+        > './package/.yo-rc.json'
+
+    (
+        pushd './package' > /dev/null
+
+        "${SCRIPT_BASE_ABSOLUTE}/node_modules/.bin/yo" "${SCRIPT_BASE_ABSOLUTE}/tmp/generator-node-ffi-library" --no-insight --local-only --no-color --skip-install
+
+        popd > /dev/null
+    )
+
+    rm './package/.yo-rc.json'
+}
+
+function lintFixNpmPackage() {
+    (
+        pushd './package' > /dev/null
+
+        echo '**/licences/**' > '.prettierignore'
+
+        "${SCRIPT_BASE_ABSOLUTE}/node_modules/.bin/prettier" --no-config --write '.'
+
+        rm '.prettierignore'
+
+        popd > /dev/null
+    )
+}
+
+function testNpmPackage() {
+    (
+        pushd './package' > /dev/null
+
+        npm install --prefer-offline
+        npm run --silent test
+
+        popd > /dev/null
+    )
+}
+
+function main() {
+    # TODO: local variables passed to functions.
+    declare -r X_CONAN_REMOTE="$1"
+    shift
+    declare -r X_CONAN_REFERENCE="$1"
+    shift
+
+    declare -r X_PACKAGER_NAME="$(getPackageJsonValue '.name')"
+    declare -r X_PACKAGER_VERSION="$(getPackageJsonValue '.version')"
+    declare -r X_PACKAGER_HOMEPAGE="$(getPackageJsonValue '.homepage')"
+    declare -r X_AUTHOR_NAME="$(getPackageJsonValue '.author.name')"
+    declare -r X_AUTHOR_EMAIL="$(getPackageJsonValue '.author.email')"
+    declare -r X_AUTHOR_HOMEPAGE="$(getPackageJsonValue '.author.url')"
+
+    checkPrerequisites
+    generateNpmPackageGenerator
+    setupConan
+
+    getConanPackageInformation
+
+    perConanPackageId createConanPackageDirectories
+
+    perConanPackage createConanPackageInfo
+    perConanPackage createConanFile
+    perConanPackage runConanInstall
+    perConanPackage resolveConanLibraryPaths
+    perConanPackage generatePlatformDetails
+    perConanPackage generatePlatformNodejsFfi
+
+    createNpmPackageDirectory
+
+    perConanPackage copyToNpmPackagePlatforms
+
+    generateNpmPackage
+    lintFixNpmPackage
+    testNpmPackage
+}
+
+main "$@"

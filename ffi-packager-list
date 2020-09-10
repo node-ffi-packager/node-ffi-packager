@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o noclobber
+set -o nounset
+set -o pipefail
+
+declare SCRIPT_ABSOLUTE
+SCRIPT_ABSOLUTE="$(realpath "$BASH_SOURCE")"
+declare SCRIPT_BASE_ABSOLUTE
+SCRIPT_BASE_ABSOLUTE="$(realpath "${SCRIPT_ABSOLUTE%/*}")"
+
+function packageTree() {
+    while read libraryName libraryVersion conanRemote;
+    do
+        # NOTE: duplicated variables.
+        local conanReference="${libraryName}/${libraryVersion}@"        
+        local libraryBuildDirectoryPath="${PWD}/build/${libraryName}-v${libraryVersion}"
+
+        # NOTE: short flags due to macos.
+        rm -rf "$libraryBuildDirectoryPath"
+        mkdir -p "$libraryBuildDirectoryPath"
+
+        (
+            pushd "$libraryBuildDirectoryPath" > /dev/null
+
+            "${SCRIPT_BASE_ABSOLUTE}/ffi-packager" "$conanRemote" "$conanReference"
+
+            popd > /dev/null
+        )
+    done < <(jq --raw-output 'map("\(.name) \(.version) \(.remote)") | .[]' "$X_LIBRARIES_JSON")
+}
+
+function main() {
+    # TODO: local variables passed to functions.
+    declare -r X_LIBRARIES_JSON="$1"
+    shift
+
+    packageTree
+}
+
+main "$@"
