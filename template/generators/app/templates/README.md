@@ -28,7 +28,7 @@ No library dependencies.
 
 <% Object.entries(platformsDetails.platform.libraryDependencies).forEach(([libraryDependencyName, libraryDependencyVersion]) => { %>
 
-- [`<%= libraryDependencyName %>` v<%= libraryDependencyVersion %>](https://github.com/<%= githubOrganizationName %>/node-ffi-library-<%= libraryDependencyName %>-v<%= libraryDependencyVersion %>) ([package branch `^v<%= packageBranch %>`](https://github.com/<%= githubOrganizationName %>/node-ffi-library-<%= libraryDependencyName %>-v<%= libraryDependencyVersion %>/branches/all?query=v<%= packageBranch.split(".")[0] %>))
+- [`<%= libraryDependencyName %>` v<%= libraryDependencyVersion %>](https://github.com/<%= githubOrganizationName %>/node-ffi-library-<%= libraryDependencyName %>-v<%= libraryDependencyVersion %>) (branch/tag matching `^<%= packageBranch %>`)
   <% }); %>
 
 ### Header files
