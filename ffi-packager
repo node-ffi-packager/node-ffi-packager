@@ -412,15 +412,7 @@ function generatePlatformDetails() {
         local platformHeaderJsRelative
         platformHeaderJsRelative="$(realpath --relative-to="$platformDirectory" "$platformHeaderJs")"
 
-        CPATH="$includePaths" "${SCRIPT_BASE_ABSOLUTE}/node_modules/.bin/ffi-generate" --library "LIBRARY_NAME_PLACEHOLDER" --file_only --file "$headerFilePath" > "$platformHeaderJs"
-
-        # NOTE: export the library using a standardized name.
-        # NOTE: short flags due to macos.
-        sed -i'' 's|exports.LIBRARY_NAME_PLACEHOLDER|exports.functions|' "$platformHeaderJs"
-
-        # NOTE: passing null to reference the globally loaded dynamic library.
-        # NOTE: short flags due to macos.
-        sed -i'' "s|'LIBRARY_NAME_PLACEHOLDER'|null|" "$platformHeaderJs"
+        CPATH="$includePaths" "${SCRIPT_BASE_ABSOLUTE}/node_modules/.bin/ffi-generate" --library 'null' --single-file --file "$headerFilePath" > "$platformHeaderJs"
 
         headerFilesPaths+="[ \"${headerFile}\", \"./${platformHeaderJsRelative}\" ]"
     done < <(jq --raw-output --arg libraryName "$libraryName" '.dependencies[$libraryName].include_files | sort | .[]' 'conan-library-paths.json')
