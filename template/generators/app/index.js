@@ -634,7 +634,7 @@ module.exports = class extends Generator {
     if (!this.properties["npm-package-name"]) {
       this.properties[
         "npm-package-name"
-      ] = `@${this.properties["npm-organization-name"]}/ffi-library-${this.properties["library-name"]}-v${this.properties["library-version"]}`;
+      ] = `@${this.properties["npm-organization-name"]}/${this.properties["library-name"]}-v${this.properties["library-version"]}`;
     }
 
     if (!this.properties["npm-package-version"]) {

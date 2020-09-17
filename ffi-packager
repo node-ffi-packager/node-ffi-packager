@@ -7,7 +7,7 @@ set -o pipefail
 
 # TODO: make configurable.
 declare -r X_GITHUB_ORGANIZATION_NAME='node-ffi-libraries'
-declare -r X_NPM_ORGANIZATION_NAME='node-ffi-libraries'
+declare -r X_NPM_ORGANIZATION_NAME='ffi-libraries'
 
 declare SCRIPT_ABSOLUTE
 SCRIPT_ABSOLUTE="$(realpath "$BASH_SOURCE")"
@@ -248,7 +248,7 @@ read -d '' jqGenerateNpmPackageYoRc <<"EOF" || true
                     key: (
                         "@\\(
                             $npmOrganizationName
-                        )/ffi-library-\\(
+                        )/\\(
                             .key
                         )-v\\(
                             .value
