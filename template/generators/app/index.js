@@ -693,7 +693,7 @@ module.exports = class extends Generator {
 
       this.properties[
         "package-description"
-      ] = `FFI package for ${this.properties["library-name"]} v${this.properties["library-version"]}: "${this.properties["library-description"]}". Available for ${platforms}.`;
+      ] = `Automatically generated FFI package for ${this.properties["library-name"]} v${this.properties["library-version"]}: "${this.properties["library-description"]}". Available for ${platforms}.`;
     }
 
     if (!this.properties["package-homepage"]) {

@@ -4,7 +4,7 @@
 
 # [<%= npmPackageName %>](<%= packageHomepage %>)
 
-[Node.js](https://nodejs.org/en/) [Foreign Function Interface (FFI)](https://en.wikipedia.org/wiki/Foreign_function_interface) package for [`<%= libraryName %>`](<%= libraryHomepage %>) v<%= libraryVersion %>.
+[Automatically generated](<%= packagerHomepage %>) [Node.js](https://nodejs.org/en/) [Foreign Function Interface (FFI)](https://en.wikipedia.org/wiki/Foreign_function_interface) package for [`<%= libraryName %>`](<%= libraryHomepage %>) v<%= libraryVersion %>. It is meant as a base to build feature-rich packages on top of &mdash; without the hassle of writing library bindings and building native dependencies.
 
 > **`<%= libraryName %>`**: <%= libraryDescription %>
 
