@@ -377,7 +377,7 @@ function createConanFile() {
 }
 
 function runConanInstall() {
-    conan install --json 'conan-install.json' --profile './conanprofile.txt' --update --build 'outdated' '.'
+    conan install --json 'conan-install.json' --profile './conanprofile.txt' --update --build 'never' '.'
 }
 
 function resolveConanLibraryPaths() {
