@@ -72,10 +72,11 @@ read -d '' jqGenerateConanfileTxt <<"EOF" || true
 [options]
 *:shared=True
 \\(
-    .options
+    .name as $name
+    | .options
     | to_entries
     | sort_by(.key)
-    | map("#\\(.name):\\(.key)=\\(.value)")
+    | map("#\\($name):\\(.key)=\\(.value)")
     | join("\\n")
 )
 
