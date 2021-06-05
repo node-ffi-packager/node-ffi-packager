@@ -544,9 +544,8 @@ module.exports = class extends Generator {
       );
 
       if (!this.properties["library-dependencies-object"]) {
-        this.properties[
-          "library-dependencies-object"
-        ] = libraryDependenciesObject;
+        this.properties["library-dependencies-object"] =
+          libraryDependenciesObject;
       }
     } catch (innerError) {
       const error = new Error(
@@ -638,9 +637,8 @@ module.exports = class extends Generator {
     }
 
     if (!this.properties["npm-package-version"]) {
-      this.properties["npm-package-version"] = this.properties[
-        "packager-version"
-      ];
+      this.properties["npm-package-version"] =
+        this.properties["packager-version"];
     }
 
     if (!this.properties["package-branch"]) {
