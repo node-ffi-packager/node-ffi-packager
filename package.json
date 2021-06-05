@@ -21,7 +21,7 @@
     "semver": "^7.3.5",
     "spdx-expression-parse": "^3.0.1",
     "spdx-to-html": "^1.0.0",
-    "yo": "^3.1.1"
+    "yo": "^4.2.0"
   },
   "devDependencies": {
     "husky": "^4.3.8"
