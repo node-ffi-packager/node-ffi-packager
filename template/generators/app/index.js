@@ -2,7 +2,7 @@
 
 const chalk = require("chalk");
 const Generator = require("yeoman-generator");
-const { Html5Entities } = require("html-entities");
+const { encode: htmlEncode } = require("html-entities");
 const semver = require("semver");
 const spdxExpressionParse = require("spdx-expression-parse");
 const spdxToHTML = require("spdx-to-html");
@@ -670,10 +670,12 @@ module.exports = class extends Generator {
           )}`
         );
 
-        const html5Entities = new Html5Entities();
-
-        this.properties["library-license-html"] = html5Entities.encode(
-          this.properties["library-license"]
+        this.properties["library-license-html"] = htmlEncode(
+          this.properties["library-license"],
+          {
+            level: "html5",
+            mode: "nonAscii",
+          }
         );
       }
     }

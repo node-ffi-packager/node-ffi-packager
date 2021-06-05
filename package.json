@@ -15,7 +15,7 @@
     "@ffi-packager/ffi-generate": "github:node-ffi-packager/node-ffi-generate#semver:^v1.0.0",
     "engine-check": "^1.0.1",
     "generator-generator": "^5.1.0",
-    "html-entities": "^1.4.0",
+    "html-entities": "^2.3.2",
     "lodash": "^4.17.21",
     "prettier": "^2.3.0",
     "semver": "^7.3.5",
