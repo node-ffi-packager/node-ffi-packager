@@ -102,4 +102,4 @@ ffi-packager 'conan-center' 'zlib/1.2.11@'
 
 ---
 
-[node-ffi-packager](https://github.com/node-ffi-packager) Copyright &copy; 2020 [Joel Purra](https://joelpurra.com/). Released under [GNU General Public License version 3.0 (GPL-3.0)](https://www.gnu.org/licenses/gpl.html). [Your donations are appreciated!](https://joelpurra.com/donate/)
+[node-ffi-packager](https://github.com/node-ffi-packager) Copyright &copy; 2020, 2021 [Joel Purra](https://joelpurra.com/). Released under [GNU General Public License version 3.0 (GPL-3.0)](https://www.gnu.org/licenses/gpl.html). [Your donations are appreciated!](https://joelpurra.com/donate/)
