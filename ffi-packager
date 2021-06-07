@@ -7,7 +7,7 @@ set -o pipefail
 
 # TODO: make configurable.
 declare -r X_GITHUB_ORGANIZATION_NAME='node-ffi-libraries'
-declare -r X_NPM_ORGANIZATION_NAME='node-ffi-libraries'
+declare -r X_NPM_ORGANIZATION_NAME='ffi-libraries'
 
 declare SCRIPT_ABSOLUTE
 SCRIPT_ABSOLUTE="$(realpath "$BASH_SOURCE")"
@@ -27,17 +27,17 @@ read -d '' jqSelectCurrentConanPackages <<"EOF" || true
             and .options.shared == "True"
         )
     )
-    | group_by("\\([
+    | group_by([
         .settings.os,
         .settings.arch
-    ])")
+    ])
     | map(
         # TODO: find a better way to find the "most recent" or "most relevant" package version, without involving the compiler.
-        sort_by("\\([
+        sort_by([
             (.settings["compiler.version"] | tonumber),
             # NOTE: sorting by id to make it easier to debug repeated runs.
             .id
-        ])")
+        ])
         | .[-1]
     )
 )
@@ -72,10 +72,11 @@ read -d '' jqGenerateConanfileTxt <<"EOF" || true
 [options]
 *:shared=True
 \\(
-    .options
+    .name as $name
+    | .options
     | to_entries
     | sort_by(.key)
-    | map("#\\(.name):\\(.key)=\\(.value)")
+    | map("#\\($name):\\(.key)=\\(.value)")
     | join("\\n")
 )
 
@@ -248,7 +249,7 @@ read -d '' jqGenerateNpmPackageYoRc <<"EOF" || true
                     key: (
                         "@\\(
                             $npmOrganizationName
-                        )/ffi-library-\\(
+                        )/\\(
                             .key
                         )-v\\(
                             .value
@@ -377,7 +378,7 @@ function createConanFile() {
 }
 
 function runConanInstall() {
-    conan install --json 'conan-install.json' --profile './conanprofile.txt' --update --build 'outdated' '.'
+    conan install --json 'conan-install.json' --profile './conanprofile.txt' --update --build 'never' '.'
 }
 
 function resolveConanLibraryPaths() {
@@ -412,15 +413,7 @@ function generatePlatformDetails() {
         local platformHeaderJsRelative
         platformHeaderJsRelative="$(realpath --relative-to="$platformDirectory" "$platformHeaderJs")"
 
-        CPATH="$includePaths" "${SCRIPT_BASE_ABSOLUTE}/node_modules/.bin/ffi-generate" --library "LIBRARY_NAME_PLACEHOLDER" --file_only --file "$headerFilePath" > "$platformHeaderJs"
-
-        # NOTE: export the library using a standardized name.
-        # NOTE: short flags due to macos.
-        sed -i'' 's|exports.LIBRARY_NAME_PLACEHOLDER|exports.functions|' "$platformHeaderJs"
-
-        # NOTE: passing null to reference the globally loaded dynamic library.
-        # NOTE: short flags due to macos.
-        sed -i'' "s|'LIBRARY_NAME_PLACEHOLDER'|null|" "$platformHeaderJs"
+        CPATH="$includePaths" "${SCRIPT_BASE_ABSOLUTE}/node_modules/.bin/ffi-generate" --library 'null' --single-file --file "$headerFilePath" > "$platformHeaderJs"
 
         headerFilesPaths+="[ \"${headerFile}\", \"./${platformHeaderJsRelative}\" ]"
     done < <(jq --raw-output --arg libraryName "$libraryName" '.dependencies[$libraryName].include_files | sort | .[]' 'conan-library-paths.json')

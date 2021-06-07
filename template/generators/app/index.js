@@ -2,7 +2,7 @@
 
 const chalk = require("chalk");
 const Generator = require("yeoman-generator");
-const { Html5Entities } = require("html-entities");
+const { encode: htmlEncode } = require("html-entities");
 const semver = require("semver");
 const spdxExpressionParse = require("spdx-expression-parse");
 const spdxToHTML = require("spdx-to-html");
@@ -37,9 +37,9 @@ module.exports = class extends Generator {
   ffiDependencies = {
     "engine-check": "^1.0.1",
     // NOTE: dependencies required by node-ffi-generate.
-    "ffi-napi": "^3.0.1",
+    "ffi-napi": "^4.0.3",
     "ref-array-di": "^1.2.2",
-    "ref-napi": "^2.1.2",
+    "ref-napi": "^3.0.3",
     "ref-struct-di": "^1.1.1",
     "ref-union-di": "^1.0.1",
   };
@@ -53,7 +53,7 @@ module.exports = class extends Generator {
   ];
   engines = {
     // NOTE: since FFI has historically been unstable in Node.js, enforce supported Node.js versions.
-    node: "^10.0.0 || ^12.0.0",
+    node: "^12.0.0 || ^14.0.0 || ^16.0.0",
   };
 
   constructor(args, options) {
@@ -544,9 +544,8 @@ module.exports = class extends Generator {
       );
 
       if (!this.properties["library-dependencies-object"]) {
-        this.properties[
-          "library-dependencies-object"
-        ] = libraryDependenciesObject;
+        this.properties["library-dependencies-object"] =
+          libraryDependenciesObject;
       }
     } catch (innerError) {
       const error = new Error(
@@ -634,13 +633,12 @@ module.exports = class extends Generator {
     if (!this.properties["npm-package-name"]) {
       this.properties[
         "npm-package-name"
-      ] = `@${this.properties["npm-organization-name"]}/ffi-library-${this.properties["library-name"]}-v${this.properties["library-version"]}`;
+      ] = `@${this.properties["npm-organization-name"]}/${this.properties["library-name"]}-v${this.properties["library-version"]}`;
     }
 
     if (!this.properties["npm-package-version"]) {
-      this.properties["npm-package-version"] = this.properties[
-        "packager-version"
-      ];
+      this.properties["npm-package-version"] =
+        this.properties["packager-version"];
     }
 
     if (!this.properties["package-branch"]) {
@@ -672,10 +670,12 @@ module.exports = class extends Generator {
           )}`
         );
 
-        const html5Entities = new Html5Entities();
-
-        this.properties["library-license-html"] = html5Entities.encode(
-          this.properties["library-license"]
+        this.properties["library-license-html"] = htmlEncode(
+          this.properties["library-license"],
+          {
+            level: "html5",
+            mode: "nonAscii",
+          }
         );
       }
     }
@@ -693,7 +693,7 @@ module.exports = class extends Generator {
 
       this.properties[
         "package-description"
-      ] = `FFI package for ${this.properties["library-name"]} v${this.properties["library-version"]}: "${this.properties["library-description"]}". Available for ${platforms}.`;
+      ] = `Automatically generated FFI package for ${this.properties["library-name"]} v${this.properties["library-version"]}: "${this.properties["library-description"]}". Available for ${platforms}.`;
     }
 
     if (!this.properties["package-homepage"]) {

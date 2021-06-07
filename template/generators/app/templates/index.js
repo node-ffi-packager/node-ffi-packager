@@ -3,7 +3,10 @@ const path = require("path");
 
 // NOTE: since FFI has historically been unstable in Node.js, enforce supported Node.js versions.
 const engineCheck = require("engine-check");
-engineCheck();
+engineCheck({
+  // NOTE: read engine range from the current directory rather than the application entry point (main) module. The application can enforce their own range if they want to.
+  searchRoot: __dirname,
+});
 
 const platformMapping = {
   // TODO: check and map all available (supported, but with different naming in nodejs/conan) platforms.
