@@ -37,9 +37,9 @@ module.exports = class extends Generator {
   ffiDependencies = {
     "engine-check": "^1.0.1",
     // NOTE: dependencies required by node-ffi-generate.
-    "ffi-napi": "^3.0.1",
+    "ffi-napi": "^4.0.3",
     "ref-array-di": "^1.2.2",
-    "ref-napi": "^2.1.2",
+    "ref-napi": "^3.0.3",
     "ref-struct-di": "^1.1.1",
     "ref-union-di": "^1.0.1",
   };
