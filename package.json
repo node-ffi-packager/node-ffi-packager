@@ -34,8 +34,7 @@
     "lint:prettier:fix": "prettier --write ."
   },
   "engines": {
-    "node": "^12.0.0 || ^14.0.0 || ^16.0.0",
-    "npm": "^7.0.0"
+    "node": "^12.0.0 || ^14.0.0 || ^16.0.0"
   },
   "husky": {
     "hooks": {
