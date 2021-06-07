@@ -53,7 +53,7 @@ module.exports = class extends Generator {
   ];
   engines = {
     // NOTE: since FFI has historically been unstable in Node.js, enforce supported Node.js versions.
-    node: "^10.0.0 || ^12.0.0",
+    node: "^12.0.0 || ^14.0.0 || ^16.0.0",
   };
 
   constructor(args, options) {
