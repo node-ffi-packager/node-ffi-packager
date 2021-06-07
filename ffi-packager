@@ -27,17 +27,17 @@ read -d '' jqSelectCurrentConanPackages <<"EOF" || true
             and .options.shared == "True"
         )
     )
-    | group_by("\\([
+    | group_by([
         .settings.os,
         .settings.arch
-    ])")
+    ])
     | map(
         # TODO: find a better way to find the "most recent" or "most relevant" package version, without involving the compiler.
-        sort_by("\\([
+        sort_by([
             (.settings["compiler.version"] | tonumber),
             # NOTE: sorting by id to make it easier to debug repeated runs.
             .id
-        ])")
+        ])
         | .[-1]
     )
 )
