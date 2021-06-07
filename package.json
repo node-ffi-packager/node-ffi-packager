@@ -12,7 +12,7 @@
   "license": "GPL-3.0",
   "dependencies": {
     "@embedded-enterprises/dot-cli": "github:EmbeddedEnterprises/dot-cli",
-    "@ffi-packager/ffi-generate": "github:node-ffi-packager/node-ffi-generate#semver:^v1.0.0",
+    "@ffi-packager/ffi-generate": "github:node-ffi-packager/node-ffi-generate#semver:^v2.0.1",
     "engine-check": "^1.0.1",
     "generator-generator": "^5.1.0",
     "html-entities": "^2.3.2",
